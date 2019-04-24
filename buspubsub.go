@@ -4,6 +4,8 @@ import (
 		"fmt"
 		"os"
 		"time"
+		"io/ioutil"
+		"log"
 
 		"nanomsg.org/go/mangos/v2"
 		"nanomsg.org/go/mangos/v2/protocol/pub"
@@ -71,8 +73,10 @@ func server(url string, name string) {
     	}
         // update global variable
         //clientMsgRecv = string(msg)
-        os.Setenv("clientMsgRecv", string(msg))
-    	fmt.Println("ENV :", os.Getenv("clientMsgRecv"))
+        err := ioutil.WriteFile("msg/"+name+".txt", msg, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
 
     	fmt.Printf("SERVER(%s): RECEIVED %s\n", name, string(msg))
     }
@@ -83,6 +87,15 @@ func node(args []string) {
 	var err error
 	var msg []byte
 	var x int
+
+	// read clientMsg from txt file
+	b, err := ioutil.ReadFile("msg/" + args[1] + ".txt") // just pass the file name
+    if err != nil {
+        fmt.Print(err)
+    }
+
+    clientMsg := string(b) // convert content to a 'string'
+    clientMsg =  clientMsg[:len(clientMsg)]
 
 	if sock, err = bus.NewSocket(); err != nil {
 		die("bus.NewSocket: %s", err)
@@ -104,8 +117,7 @@ func node(args []string) {
 	time.Sleep(time.Second)
 
 	fmt.Printf("%s: SENDING '%s' ONTO BUS\n", args[1], args[1])
-	fmt.Println("ENV :", os.Getenv("clientMsgRecv"))
-	if err = sock.Send([]byte(os.Getenv("clientMsgRecv") + args[1])); err != nil {
+	if err = sock.Send([]byte(clientMsg + " by " + args[1])); err != nil {
 		die("sock.Send: %s", err.Error())
 	}
 
@@ -130,13 +142,13 @@ func main() {
 		server(os.Args[2], os.Args[3])
 		os.Exit(0)
 	}
-	fmt.Fprintln(os.Stderr, "Usage: pubsub server|client <URL> <ARG>\n")
+	//fmt.Fprintln(os.Stderr, "Usage: pubsub server|client <URL> <ARG>\n")
 	
 
 	if len(os.Args) > 3 && os.Args[1] != "server"{
 		node(os.Args)
 		os.Exit(0)
 	}
-	fmt.Fprintf(os.Stderr, "Usage: bus <NODENAME> <URL> <URL>... \n")
+	//xfmt.Fprintf(os.Stderr, "Usage: bus <NODENAME> <URL> <URL>... \n")
 	os.Exit(1)
 }
